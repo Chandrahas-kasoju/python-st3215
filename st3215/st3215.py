@@ -2,216 +2,118 @@ import serial
 import threading
 import time
 
-from st3215.values import *
+from .port_handler import *
+from .protocol_packet_handler import *
+from .group_sync_write import *
+from .group_sync_read import *
+from .values import *
 
-#from .values import *
 
-from STservo_sdk import *
+__all__ = ['ST3215']
 
-class ST3215:
 
-    def __init__(self, device, baudrate = DEFAULT_BAUDRATE):
+class ST3215(protocol_packet_handler):
 
-        if baudrate not in BAUDRATES:
-            raise ValueError(f"{baudrate} must be in: {BAUDRATES}")
+    def __init__(self, device):
 
-        self.ser = serial.Serial(
-            port=device,
-            baudrate=baudrate,
-            bytesize=serial.EIGHTBITS,
-            timeout=0)
-    
+        self.portHandler = PortHandler(device)
+        
+        if not self.portHandler.openPort():
+            raise ValueError(f"Could not open port: {device}")
 
-        self.ser.reset_input_buffer()
-        self.tx_time_per_byte = (1000.0 / baudrate) * 10.0
+        protocol_packet_handler.__init__(self, self.portHandler)
 
+        self.groupSyncWrite = GroupSyncWrite(self, STS_ACC, 7)
         self.lock = threading.Lock()
 
 
-
-
-
-
-
-
-    # Timeout definition when sending a message
-
-    # Concurrency
-
-    # Set Servo ID
-
-    # Init bus 
-
-    # Ping
-
-    # Read Byte
-
-    def tx(self, packet):
-
-        checksum = 0
-        packet_length = packet[PKT_LENGTH] + 4
-
-        if packet_length > TXPACKET_MAX_LEN:
-            raise ValueError(f"TX Packet len > {TXPACKET_MAX_LEN}")
-
-
-        txpacket[PKT_HEADER_0] = 0xFF
-        txpacket[PKT_HEADER_1] = 0xFF
-
-        for idx in range(2, packet_length - 1):
-            checksum += packet[idx]
-
-        packet[packet_length - 1] = ~checksum & 0xFF
-
-        with self.lock:
-            self.ser.flush()
-            written_bytes = self.ser.write(packet)
-            if written_bytes != packet_length:
-                raise ValueError("Could not transmit packet")
-
+    def ServoPing(self, sts_id):
+        model, comm, error = self.ping(sts_id)
+        if comm != COMM_SUCCESS or model == 0 or error != 0:
+            return False
         return True
 
-    def rx(self):
-        rxpacket = []
+    def ListServos(self):
+        servos=[]
+        for id in range(0, 254):
+            if self.ServoPing(id):
+                servos.append(id)
 
-        result = COMM_TX_FAIL
-        checksum = 0
-        rx_length = 0
-        wait_length = 6  # minimum length (HEADER0 HEADER1 ID LENGTH ERROR CHKSUM)
-
-        while True:
-            rxpacket.extend(self.portHandler.readPort(wait_length - rx_length))
-            rx_length = len(rxpacket)
-            if rx_length >= wait_length:
-                # find packet header
-                for idx in range(0, (rx_length - 1)):
-                    if (rxpacket[idx] == 0xFF) and (rxpacket[idx + 1] == 0xFF):
-                        break
-
-                if idx == 0:  # found at the beginning of the packet
-                    if (rxpacket[PKT_ID] > 0xFD) or (rxpacket[PKT_LENGTH] > RXPACKET_MAX_LEN) or (
-                            rxpacket[PKT_ERROR] > 0x7F):
-                        # unavailable ID or unavailable Length or unavailable Error
-                        # remove the first byte in the packet
-                        del rxpacket[0]
-                        rx_length -= 1
-                        continue
-
-                    # re-calculate the exact length of the rx packet
-                    if wait_length != (rxpacket[PKT_LENGTH] + PKT_LENGTH + 1):
-                        wait_length = rxpacket[PKT_LENGTH] + PKT_LENGTH + 1
-                        continue
-
-                    if rx_length < wait_length:
-                        # check timeout
-                        if self.portHandler.isPacketTimeout():
-                            if rx_length == 0:
-                                result = COMM_RX_TIMEOUT
-                            else:
-                                result = COMM_RX_CORRUPT
-                            break
-                        else:
-                            continue
-
-                    # calculate checksum
-                    for i in range(2, wait_length - 1):  # except header, checksum
-                        checksum += rxpacket[i]
-                    checksum = ~checksum & 0xFF
-
-                    # verify checksum
-                    if rxpacket[wait_length - 1] == checksum:
-                        result = COMM_SUCCESS
-                    else:
-                        result = COMM_RX_CORRUPT
-                    break
-
-                else:
-                    # remove unnecessary packets
-                    del rxpacket[0: idx]
-                    rx_length -= idx
-
-            else:
-                # check timeout
-                if self.portHandler.isPacketTimeout():
-                    if rx_length == 0:
-                        result = COMM_RX_TIMEOUT
-                    else:
-                        result = COMM_RX_CORRUPT
-                    break
-
-        self.portHandler.is_using = False
-        return rxpacket, result
+        return servos
 
 
+    def ReadLoad(self, sts_id):
+        return self.read1ByteTxRx(sts_id, STS_PRESENT_LOAD_L)
 
-    def rx(self):
+    def ReadVoltage(self, sts_id):
+        return self.read1ByteTxRx(sts_id, STS_PRESENT_VOLTAGE)
 
-        packet = []
-        checksum = 0
-        packet_length = 0
-
-        with self.lock:
-
-            now = round(time.time() * 1000000000) / 1000000.0
-
-            self.packet_timeout = (self.tx_time_per_byte * packet_length) + (self.tx_time_per_byte * 3.0) + LATENCY_TIMER
-
-            # First read the initial packet (length: 6): HEADER0, HEADER1, ID, LENGTH, ERROR, CHECKSUM
-            data = self.ser.read(6)
-            if len(data) < 6:
-                raise ValueError("Invalid initial packet")
+    def ReadTemperature(self, sts_id):
+        return self.read1ByteTxRx(sts_id, STS_PRESENT_TEMPERATURE)
 
 
 
 
-        # Then, now we can read the lenght value
+    def WritePosEx(self, sts_id, position, speed, acc):
+        txpacket = [acc, self.sts_lobyte(position), self.sts_hibyte(position), 0, 0, self.sts_lobyte(speed), self.sts_hibyte(speed)]
+        return self.writeTxRx(sts_id, STS_ACC, len(txpacket), txpacket)
 
-        # self.ser.read(length)
+    def ReadPos(self, sts_id):
+        sts_present_position, sts_comm_result, sts_error = self.read2ByteTxRx(sts_id, STS_PRESENT_POSITION_L)
+        return self.sts_tohost(sts_present_position, 15), sts_comm_result, sts_error
 
-    def close(self):
-        self.ser.close()
+    def ReadSpeed(self, sts_id):
+        sts_present_speed, sts_comm_result, sts_error = self.read2ByteTxRx(sts_id, STS_PRESENT_SPEED_L)
+        return self.sts_tohost(sts_present_speed, 15), sts_comm_result, sts_error
+
+    def ReadPosSpeed(self, sts_id):
+        sts_present_position_speed, sts_comm_result, sts_error = self.read4ByteTxRx(sts_id, STS_PRESENT_POSITION_L)
+        sts_present_position = self.sts_loword(sts_present_position_speed)
+        sts_present_speed = self.sts_hiword(sts_present_position_speed)
+        return self.sts_tohost(sts_present_position, 15), self.sts_tohost(sts_present_speed, 15), sts_comm_result, sts_error
+
+    def ReadMoving(self, sts_id):
+        return self.read1ByteTxRx(sts_id, STS_MOVING)
+
+    def SyncWritePosEx(self, sts_id, position, speed, acc):
+        txpacket = [acc, self.sts_lobyte(position), self.sts_hibyte(position), 0, 0, self.sts_lobyte(speed), self.sts_hibyte(speed)]
+        return self.groupSyncWrite.addParam(sts_id, txpacket)
+
+    def RegWritePosEx(self, sts_id, position, speed, acc):
+        txpacket = [acc, self.sts_lobyte(position), self.sts_hibyte(position), 0, 0, self.sts_lobyte(speed), self.sts_hibyte(speed)]
+        return self.regWriteTxRx(sts_id, STS_ACC, len(txpacket), txpacket)
+
+    def RegAction(self):
+        return self.action(BROADCAST_ID)
+
+    def WheelMode(self, sts_id):
+        return self.write1ByteTxRx(sts_id, STS_MODE, 1)
+
+    def WriteSpec(self, sts_id, speed, acc):
+        speed = self.sts_toscs(speed, 15)
+        txpacket = [acc, 0, 0, 0, 0, self.sts_lobyte(speed), self.sts_hibyte(speed)]
+        return self.writeTxRx(sts_id, STS_ACC, len(txpacket), txpacket)
+
+    def LockEprom(self, sts_id):
+        return self.write1ByteTxOnly(sts_id, STS_LOCK, 1)
+
+    def UnLockEprom(self, sts_id):
+        return self.write1ByteTxOnly(sts_id, STS_LOCK, 0)
+
+    def ChangeId(self, sts_id, new_id):
+        if isinstance(new_id, int) and 0 <= new_id <= 253:
+            if not self.ServoPing(sts_id):
+                return None, f"Could not find servo: {sts_id}" 
+
+            if self.UnLockEprom(sts_id) != COMM_SUCCESS:
+                return None, "Could not unlock Eprom" 
+
+            if self.write1ByteTxOnly(sts_id, STS_ID, new_id) != COMM_SUCCESS:
+                return None, "Could not change Servo ID" 
+
+            self.LockEprom(sts_id)
+        else:
+            return None, "new_id is not between 0 and 254" 
 
 
-#### SETUP CODE ####
-#from STservo_sdk import *
-#
-#
-#
-## Default setting
-#BAUDRATE                = 1000000
-#DEVICENAME              = '/dev/ttyACM0'
-#
-#MAX_SPEED = 3000
-#MAX_ACCEL = 50
-#MIN_POSITION  = 0
-#MAX_POSITION  = 4095
-#
-#
-#portHandler = PortHandler(DEVICENAME)
-#
-#packetHandler = sts(portHandler)
-#
-#if not portHandler.openPort():
-#  raise ValueError(f"Fail to open Servo board port: {DEVICENAME}")
-#
-#
-#if not portHandler.setBaudRate(BAUDRATE):
-#  raise ValueError("Failed to set the baudrate")
-#
-#
-#sts_model_number, sts_comm_result, sts_error = packetHandler.ping(1)
-#if sts_comm_result != COMM_SUCCESS or sts_error != 0:
-#  raise ValueError("Could not find servo: %d" % 1)
-#else:
-#  print(sts_model_number)
-#
-#value, comm_result, erro = packetHandler.read1ByteTxRx(1, 0x5)
-#print(value)
-#
-#result, error = packetHandler.write1ByteTxRx(1, 0x37, 0)
-#result, error = packetHandler.write1ByteTxRx(1, 0x5, 12)
-#print(result)
-#
-#value, comm_result, erro = packetHandler.read1ByteTxRx(12, 0x5)
-#print(value)
 

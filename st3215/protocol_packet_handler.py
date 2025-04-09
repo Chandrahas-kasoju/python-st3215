@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-
-from .stservo_def import *
+from .values import *
 
 class protocol_packet_handler(object):
-    def __init__(self, portHandler, protocol_end):
+    def __init__(self, portHandler):
         #self.sts_setend(protocol_end)# STServo bit end(STS/SMS=0, SCS=1)
         self.portHandler = portHandler
-        self.sts_end = protocol_end
+        self.sts_end = 0
 
     def sts_getend(self):
         return self.sts_end
@@ -100,35 +98,35 @@ class protocol_packet_handler(object):
         checksum = 0
         total_packet_length = txpacket[PKT_LENGTH] + 4  # 4: HEADER0 HEADER1 ID LENGTH
 
-        #if self.portHandler.is_using:
-        #    return COMM_PORT_BUSY
-        #self.portHandler.is_using = True
+        if self.portHandler.is_using:
+            return COMM_PORT_BUSY
+        self.portHandler.is_using = True
 
         # check max packet length
-        #if total_packet_length > TXPACKET_MAX_LEN:
-        #    self.portHandler.is_using = False
-        #    return COMM_TX_ERROR
+        if total_packet_length > TXPACKET_MAX_LEN:
+            self.portHandler.is_using = False
+            return COMM_TX_ERROR
 
         # make packet header
-        #txpacket[PKT_HEADER0] = 0xFF
-        #txpacket[PKT_HEADER1] = 0xFF
+        txpacket[PKT_HEADER_0] = 0xFF
+        txpacket[PKT_HEADER_1] = 0xFF
 
         # add a checksum to the packet
-        #for idx in range(2, total_packet_length - 1):  # except header, checksum
-        #    checksum += txpacket[idx]
+        for idx in range(2, total_packet_length - 1):  # except header, checksum
+            checksum += txpacket[idx]
 
-        #txpacket[total_packet_length - 1] = ~checksum & 0xFF
+        txpacket[total_packet_length - 1] = ~checksum & 0xFF
 
         #print "[TxPacket] %r" % txpacket
 
         # tx packet
-        #self.portHandler.clearPort()
-        #written_packet_length = self.portHandler.writePort(txpacket)
-        #if total_packet_length != written_packet_length:
-        #    self.portHandler.is_using = False
-        #    return COMM_TX_FAIL
+        self.portHandler.clearPort()
+        written_packet_length = self.portHandler.writePort(txpacket)
+        if total_packet_length != written_packet_length:
+            self.portHandler.is_using = False
+            return COMM_TX_FAIL
 
-        #return COMM_SUCCESS
+        return COMM_SUCCESS
 
     def rxPacket(self):
         rxpacket = []

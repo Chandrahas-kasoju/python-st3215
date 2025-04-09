@@ -4,3 +4,5 @@
 
 __version__ = "IN_PROGRESS"
 
+from .st3215 import *
+
