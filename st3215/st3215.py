@@ -384,11 +384,9 @@ class ST3215(protocol_packet_handler):
             if min_position >= max_position:
                 distance = int(((MAX_POSITION - min_position + max_position) / 2))
                 middle = (min_position + distance) % MAX_POSITION
-                print(f"1: {min_position} - {max_position} : {distance} {middle}")
             else:
                 distance = int(((max_position - min_position) / 2))
                 middle = min_position + distance
-                print(f"2: {min_position} - {max_position} : {distance} {middle}")
 
 
             if self.MoveTo(sts_id, middle) is not None:
@@ -396,11 +394,11 @@ class ST3215(protocol_packet_handler):
                 if self.DefineMiddle(sts_id) is not None:
                     # Now, redefine the new min and max
                     if middle > min_position:
-                        min_position = middle - distance
+                        max_position = middle - distance
                     else:
-                        min_position = MAX_POSITION - distance + middle 
+                        max_position = MAX_POSITION - distance + middle 
 
-                    max_position = (middle + distance) % MAX_POSITION
+                    min_position = (middle + distance) % MAX_POSITION
 
                 self.MoveTo(sts_id, 2048)
 
