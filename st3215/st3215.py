@@ -392,15 +392,11 @@ class ST3215(protocol_packet_handler):
             if self.MoveTo(sts_id, middle) is not None:
                 time.sleep(2)
                 if self.DefineMiddle(sts_id) is not None:
-                    # Now, redefine the new min and max
-                    if middle > min_position:
-                        max_position = middle - distance
-                    else:
-                        max_position = MAX_POSITION - distance + middle 
+                    if self.CorrectPosition(sts_id, -2048) is not None:
+                        min_position = 0
+                        max_position = distance * 2
 
-                    min_position = (middle + distance) % MAX_POSITION
-
-                self.MoveTo(sts_id, 2048)
+                self.MoveTo(sts_id, distance)
 
 
         return min_position, max_position
