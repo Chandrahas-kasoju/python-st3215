@@ -1,5 +1,6 @@
 import threading
 import time
+import math
 
 from .port_handler import *
 from .protocol_packet_handler import *
@@ -357,7 +358,7 @@ class ST3215(protocol_packet_handler):
 
     def TareServo(self, sts_id):
         """
-        Tare a Servo: Find its min and max position, then configure the new middle value (MAX_VALUE / 2 - 2048 by default) to the middle of the servo course
+        Tare a Servo: Find its min and max position, then configure the new 0 position of the servo course
 
         WARNING: Must only be use for a servo that has at least one blocking position. Never use this function for a free rotation servo.
 
@@ -366,60 +367,94 @@ class ST3215(protocol_packet_handler):
         :return: min and max position in the servo course. None in case of error.
         """
 
-        self.SetAcceleration(sts_id, 100)
-        self.Rotate(sts_id, 250)
+        if self.CorrectPosition(sts_id, 0) is None:
+            return None, None
+
         time.sleep(0.5)
 
-        max_position = self.getBlockPosition(sts_id)
-
-
+        self.SetAcceleration(sts_id, 100)
         self.Rotate(sts_id, -250)
         time.sleep(0.5)
 
         min_position = self.getBlockPosition(sts_id)
+
+
+        self.Rotate(sts_id, 250)
+        time.sleep(0.5)
+
+        max_position = self.getBlockPosition(sts_id)
 
         if min_position is not None and max_position is not None:
 
             # Now, set the middle of the path to 2048
             if min_position >= max_position:
                 distance = int(((MAX_POSITION - min_position + max_position) / 2))
-                middle = (min_position + distance) % MAX_POSITION
             else:
                 distance = int(((max_position - min_position) / 2))
-                middle = min_position + distance
 
 
-            if self.MoveTo(sts_id, middle) is not None:
-                time.sleep(2)
-                if self.DefineMiddle(sts_id) is not None:
-                    if self.CorrectPosition(sts_id, -2048) is not None:
-                        min_position = 0
-                        max_position = distance * 2
+            if min_position > int(MAX_POSITION/2):
+                corr = min_position - MAX_POSITION - 1
+            else:
+                corr = min_position
+
+
+            if self.CorrectPosition(sts_id, corr) is not None:
+                min_position = 0
+                max_position = distance * 2
+                time.sleep(0.5)
 
                 self.MoveTo(sts_id, distance)
-
 
         return min_position, max_position
 
 
 
-    def MoveTo(self, sts_id, position, speed = 2400, acc = 50):
+    def MoveTo(self, sts_id, position, speed = 2400, acc = 50, wait = False):
         """
         Move the servo to a pre defined position
 
         :param sts_id: Servo ID
+        :param position: New position of the Servo
+        :param speed: Move speed in step/s (facultative, 2400 by default)
+        :param acc: Accelaration speed in step/s² (facultative, 50 by default)
+        :param wait: Wait the position to be reached before the function return (facultative, False by default)
 
         :return: True. None in case of error.
         """
 
-        res_mode = self.SetMode(sts_id, 0) == None
+        res_mode = self.SetMode(sts_id, 0)
         res_acc = self.SetAcceleration(sts_id, acc)
         res_speed = self.SetSpeed(sts_id, speed)
 
-        if res_acc == None or res_speed == None or res_mode:
+        if res_acc == None or res_speed == None or res_mode == None:
             return None
 
-        return self.WritePosition(sts_id, position)
+        curr_pos = self.ReadPosition(sts_id) 
+
+        res_pos = self.WritePosition(sts_id, position)
+        if res_pos == None:
+            return None
+
+        if wait == True:
+            if position == None:
+                return None
+            else:
+                distance = abs(position - curr_pos)
+
+            time_to_speed = speed / (acc * 100)
+
+            distance_acc = 0.5 * (acc * 100) * time_to_speed ** 2
+
+            if distance_acc >= distance:
+                time_wait = math.sqrt(2 * distance / acc)
+            else:
+                remain_distance = distance - distance_acc
+                time_wait = time_to_speed + (remain_distance / speed)
+
+            time.sleep(time_wait)
+
+        return True
 
 
 

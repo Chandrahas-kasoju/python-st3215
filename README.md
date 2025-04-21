@@ -241,14 +241,16 @@ servo.Rotate(1, 250)
 
 ---
 
-### `MoveTo(sts_id, position, speed=2400, acc=50)`
+### `MoveTo(sts_id, position, speed=2400, acc=50, wait=False)`
 Move to a defined position.
+Set wait to `True` if you want to wait the end of the move before the function returning
 
 - **Parameters**:
   - `sts_id` (int)
   - `position` (int)
   - `speed` (int)
   - `acc` (int)
+  - `wait` (bool)
 - **Returns**: `True` or `None`
 - **Example**:
 ```python
