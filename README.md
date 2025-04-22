@@ -41,7 +41,7 @@ servo.PingServo(1)
 ---
 
 ### `ListServos()`
-Scan and return a list of all responsive servos.
+Scan and return a list of all responsive servos. Return `None` in case of error.
 
 - **Returns**: `List[int]` of servo IDs
 - **Example**:
@@ -52,7 +52,7 @@ servo.ListServos()
 ---
 
 ### `ReadLoad(sts_id)`
-Get the motor load in %.
+Get the motor load in %. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `float` or `None`
@@ -64,7 +64,7 @@ servo.ReadLoad(1)
 ---
 
 ### `ReadVoltage(sts_id)`
-Read voltage in volts.
+Read voltage in volts. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `float` or `None`
@@ -76,7 +76,7 @@ servo.ReadVoltage(1)
 ---
 
 ### `ReadCurrent(sts_id)`
-Get current in mA.
+Get current in mA. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `float` or `None`
@@ -88,7 +88,7 @@ servo.ReadCurrent(1)
 ---
 
 ### `ReadTemperature(sts_id)`
-Read current temperature.
+Read current temperature °C. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int` or `None`
@@ -100,7 +100,7 @@ servo.ReadTemperature(1)
 ---
 
 ### `ReadAccelaration(sts_id)`
-Read current acceleration setting.
+Read current acceleration value in step/s². Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int` or `None`
@@ -112,7 +112,12 @@ servo.ReadAccelaration(1)
 ---
 
 ### `ReadMode(sts_id)`
-Get current mode.
+Get current mode. Return `None` in case of error.
+
+0: position servo mode 
+1: motor constant speed mode
+2: PWM open-loop speed regulation mode
+3: step servo mode
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int` or `None`
@@ -124,7 +129,9 @@ servo.ReadMode(1)
 ---
 
 ### `ReadCorrection(sts_id)`
-Read position correction value.
+Read position position correction value. Return `None` in case of error.
+
+Add a position correction in steps.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int` or `None`
@@ -135,8 +142,23 @@ servo.ReadCorrection(1)
 
 ---
 
+### `ReadStatus(sts_id)`
+Read the sensors status of the servo. Return a dict with sensor status or `None` in case of error
+
+`{'Voltage': True, 'Sensor': True, 'Temperature': True, 'Current': True, 'Angle': True, 'Overload': True}`
+
+- **Parameters**: `sts_id` (int)
+- **Returns**: `dict` or `None`
+- **Example**:
+```python
+servo.ReadStatus(1)
+```
+
+
+---
+
 ### `IsMoving(sts_id)`
-Check if the servo is moving.
+Check if the servo is moving. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `bool` or `None`
@@ -148,7 +170,7 @@ servo.IsMoving(1)
 ---
 
 ### `SetAcceleration(sts_id, acc)`
-Set acceleration value.
+Set acceleration value in step/s². Return `None` in case of error.
 
 - **Parameters**:
   - `sts_id` (int)
@@ -162,7 +184,7 @@ servo.SetAcceleration(1, 100)
 ---
 
 ### `SetSpeed(sts_id, speed)`
-Set servo speed.
+Set servo speed in step/s. Return `None` in case of error.
 
 - **Parameters**:
   - `sts_id` (int)
@@ -176,7 +198,7 @@ servo.SetSpeed(1, 3000)
 ---
 
 ### `StopServo(sts_id)`
-Disable torque.
+Disable torque. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `True` or `None`
@@ -188,7 +210,7 @@ servo.StopServo(1)
 ---
 
 ### `StartServo(sts_id)`
-Enable torque.
+Enable torque. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `True` or `None`
@@ -200,7 +222,12 @@ servo.StartServo(1)
 ---
 
 ### `SetMode(sts_id, mode)`
-Set operational mode.
+Set operational mode. Return `None` in case of error.
+
+0: position servo mode 
+1: motor constant speed mode
+2: PWM open-loop speed regulation mode
+3: step servo mode
 
 - **Parameters**:
   - `sts_id` (int)
@@ -214,7 +241,7 @@ servo.SetMode(1, 0)
 ---
 
 ### `CorrectPosition(sts_id, correction)`
-Apply a position correction.
+Apply a position correction. Return `None` in case of error.
 
 - **Parameters**:
   - `sts_id` (int)
@@ -228,7 +255,7 @@ servo.CorrectPosition(1, -100)
 ---
 
 ### `Rotate(sts_id, speed)`
-Rotate in continuous mode.
+Rotate in continuous mode. Return `None` in case of error.
 
 - **Parameters**:
   - `sts_id` (int)
@@ -260,7 +287,7 @@ servo.MoveTo(1, 2048)
 ---
 
 ### `WritePosition(sts_id, position)`
-Direct position write.
+Direct position write. Return `None` in case of error.
 
 - **Parameters**:
   - `sts_id` (int)
@@ -274,7 +301,7 @@ servo.WritePosition(1, 2048)
 ---
 
 ### `ReadPosition(sts_id)`
-Read current position.
+Read current position. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int` or `None`
@@ -286,7 +313,7 @@ servo.ReadPosition(1)
 ---
 
 ### `ReadSpeed(sts_id)`
-Get current speed.
+Get current speed. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `(int, int, int)`
@@ -298,7 +325,7 @@ speed, comm, error = servo.ReadSpeed(1)
 ---
 
 ### `LockEprom(sts_id)`
-Lock the EEPROM.
+Lock the EEPROM. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int`
@@ -310,7 +337,7 @@ servo.LockEprom(1)
 ---
 
 ### `UnLockEprom(sts_id)`
-Unlock the EEPROM.
+Unlock the EEPROM. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int`
@@ -322,7 +349,7 @@ servo.UnLockEprom(1)
 ---
 
 ### `ChangeId(sts_id, new_id)`
-Change the servo ID.
+Change the servo ID. Return `None` in case of error.
 
 - **Parameters**:
   - `sts_id` (int)
@@ -336,7 +363,7 @@ servo.ChangeId(1, 2)
 ---
 
 ### `DefineMiddle(sts_id)`
-Define current position as center (2048).
+Define current position as center (2048). Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `True` or `None`
@@ -348,7 +375,7 @@ servo.DefineMiddle(1)
 ---
 
 ### `TareServo(sts_id)`
-Calibrate min/max and redefine middle.
+Calibrate min/max and redefine middle. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `(min_position, max_position)` or `None`
@@ -360,7 +387,7 @@ min_pos, max_pos = servo.TareServo(1)
 ---
 
 ### `getBlockPosition(sts_id)`
-Move to physical limit and return position.
+Move to physical limit and return position. Return `None` in case of error.
 
 - **Parameters**: `sts_id` (int)
 - **Returns**: `int` or `None`

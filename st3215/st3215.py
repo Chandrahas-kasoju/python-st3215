@@ -467,6 +467,32 @@ class ST3215(protocol_packet_handler):
             return None
 
 
+    def ReadStatus(self, sts_id):
+        """
+        Get the sensors status
+
+        :param sts_id: Servo ID
+
+        :return: dict of sensor status in case of success, otherwise None
+        """
+        status_bits = ["Voltage", "Sensor", "Temperature", "Current", "Angle", "Overload"]
+
+        status = {}
+
+        status_byte, comm, error =  self.read1ByteTxRx(sts_id, STS_STATUS)
+        if comm != 0 or error != 0:
+            return None
+
+
+        for i in range(6):
+            if status_byte & (1 << i):
+                status[status_bits[i]] = False
+            else:
+                status[status_bits[i]] = True
+
+        return status
+
+
     def ReadPosition(self, sts_id):
         """
         Get the current position
